@@ -1,25 +1,20 @@
 import requests
 from bs4 import BeautifulSoup
 
-# =========================
-# Settings
-# =========================
+
 
 BASE_URL = "https://laws.boe.gov.sa"
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
-# رابط النظام الذي نختبر عليه
+# رابط النظام الاساسي للحكم
 LAW_URL = (
     "https://laws.boe.gov.sa/BoeLaws/Laws/"
     "LawDetails/16b97fcb-4833-4f66-8531-a9a700f161b6/1"
 )
 
 
-# =========================
-# Helper Functions
-# =========================
 
 def get_text_by_label(soup, label_text):
     """
@@ -48,7 +43,7 @@ def get_text_by_label(soup, label_text):
 
     return None
 
-
+# يستخرج أداة إصدار النظام
 def get_issuing_tool(soup):
     """
     Extract the issuing instrument, for example:
@@ -71,7 +66,7 @@ def get_issuing_tool(soup):
 
     return None
 
-
+# يستخرج نص النظام الكامل
 def get_law_text(soup):
     """
     Extract only the actual legal text.
@@ -88,9 +83,7 @@ def get_law_text(soup):
     return container.get_text("\n", strip=True)
 
 
-# =========================
-# Main
-# =========================
+
 
 def scrape_law(url):
     """
@@ -116,7 +109,7 @@ def scrape_law(url):
         "html.parser"
     )
 
-    # Extract metadata
+   
     law = {
         "name": get_text_by_label(soup, "الاسم"),
         "issue_date": get_text_by_label(soup, "تاريخ الإصدار"),
@@ -130,9 +123,7 @@ def scrape_law(url):
     return law
 
 
-# =========================
-# Run
-# =========================
+
 
 if __name__ == "__main__":
 
