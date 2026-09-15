@@ -36,7 +36,7 @@ HEADERS = {
 }
 
 SEAWEEDFS_CLIENT = Minio(
-    "localhost:8333",
+    "74.235.104.131:8333",
     access_key="",
     secret_key="",
     secure=False
@@ -404,16 +404,22 @@ def extract_document(url, run_date):
             )
         )
 
-        html_object_name = (
+        # Extract text from the HTML page
+        raw_text = soup.get_text(
+            "\n",
+            strip=True
+        )
+
+        txt_object_name = (
             f"{run_date}/"
             f"{document_id}/"
-            f"raw.html"
+            f"raw.txt"
         )
 
         upload_to_seaweedfs(
-            response.content,
-            html_object_name,
-            "text/html"
+            raw_text.encode("utf-8"),
+            txt_object_name,
+            "text/plain; charset=utf-8"
         )
 
         pdf_object_name = None
@@ -449,8 +455,8 @@ def extract_document(url, run_date):
             "source_url": url,
             "translated_document_url":
                 translated_document_url,
-            "bronze_html_path":
-                html_object_name,
+            "bronze_txt_path":
+                txt_object_name,
             "bronze_pdf_path":
                 pdf_object_name,
             "collected_at":
