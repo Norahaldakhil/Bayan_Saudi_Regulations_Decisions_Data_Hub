@@ -1,0 +1,291 @@
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+
+  environment: &airflow-common-env
+    # --------------------------------------------------------
+    # Airflow's own metadata database
+    # --------------------------------------------------------
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${AIRFLOW_DB}
+
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+
+    AIRFLOW__CORE__HOSTNAME_CALLABLE: "airflow.utils.net.getfqdn"
+
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-api-server:8080/execution/
+
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+
+    AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_SECRET_KEY}
+
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/bayan/airflow/dags
+
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: "120"
+    AIRFLOW__CORE__PARALLELISM: 2
+    AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: 1
+    AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: 1
+    AIRFLOW__API__WORKERS: "1"
+
+    # --------------------------------------------------------
+    # Bayan PostgreSQL
+    # --------------------------------------------------------
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    # --------------------------------------------------------
+    # Bayan SeaweedFS
+    # --------------------------------------------------------
+    SEAWEEDFS_ENDPOINT: http://seaweedfs-s3:8333
+    BOE_PROXY_URL: ${BOE_PROXY_URL}
+    BOE_VERIFY_SSL: ${BOE_VERIFY_SSL:-true}
+    SEAWEEDFS_BUCKET: ${SEAWEEDFS_BUCKET}
+
+    # --------------------------------------------------------
+    # Bayan source
+    # --------------------------------------------------------
+    SOURCE_NAME: ${SOURCE_NAME}
+
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+
+services:
+
+  # ============================================================
+  # PostgreSQL
+  #
+  # One PostgreSQL server with two databases:
+  #   - bayan  -> application/data
+  #   - airflow -> Airflow metadata
+  # ============================================================
+  postgres:
+    image: postgres:16
+    container_name: bayan-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+  # ============================================================
+  # SeaweedFS - Master
+  # ============================================================
+  seaweedfs-master:
+    image: chrislusf/seaweedfs:latest
+    container_name: bayan-seaweedfs-master
+    restart: unless-stopped
+
+    command:
+      - master
+      - -ip=seaweedfs-master
+      - -ip.bind=0.0.0.0
+
+    ports:
+      - "9333:9333"
+
+    volumes:
+      - seaweedfs_master_data:/data
+
+
+  # ============================================================
+  # SeaweedFS - Volume
+  # ============================================================
+  seaweedfs-volume:
+    image: chrislusf/seaweedfs:latest
+    container_name: bayan-seaweedfs-volume
+    restart: unless-stopped
+
+    command:
+      - volume
+      - -ip=seaweedfs-volume
+      - -master=seaweedfs-master:9333
+      - -ip.bind=0.0.0.0
+      - -port=8080
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - seaweedfs_volume_data:/data
+
+    depends_on:
+      - seaweedfs-master
+
+
+  # ============================================================
+  # SeaweedFS - Filer
+  # ============================================================
+  seaweedfs-filer:
+    image: chrislusf/seaweedfs:latest
+    container_name: bayan-seaweedfs-filer
+    restart: unless-stopped
+
+    command:
+      - filer
+      - -ip=seaweedfs-filer
+      - -master=seaweedfs-master:9333
+      - -ip.bind=0.0.0.0
+
+    ports:
+      - "8888:8888"
+
+    volumes:
+      - seaweedfs_filer_data:/data
+
+    depends_on:
+      - seaweedfs-master
+      - seaweedfs-volume
+
+
+  # ============================================================
+  # SeaweedFS - S3 Gateway
+  # ============================================================
+  seaweedfs-s3:
+    image: chrislusf/seaweedfs:latest
+    container_name: bayan-seaweedfs-s3
+    restart: unless-stopped
+
+    command:
+      - s3
+      - -filer=seaweedfs-filer:8888
+      - -ip.bind=0.0.0.0
+
+    ports:
+      - "8333:8333"
+
+    depends_on:
+      - seaweedfs-master
+      - seaweedfs-volume
+      - seaweedfs-filer
+
+
+  # ============================================================
+  # Airflow - Database Initialization
+  # ============================================================
+  airflow-init:
+    <<: *airflow-common
+    container_name: bayan-airflow-init
+
+    environment:
+      <<: *airflow-common-env
+
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      _AIRFLOW_WWW_USER_EMAIL: ${AIRFLOW_ADMIN_EMAIL}
+
+    command:
+      - bash
+      - -c
+      - |
+        airflow db migrate
+
+        airflow users create \
+          --username "$${_AIRFLOW_WWW_USER_USERNAME}" \
+          --password "$${_AIRFLOW_WWW_USER_PASSWORD}" \
+          --firstname Airflow \
+          --lastname Admin \
+          --role Admin \
+          --email "$${_AIRFLOW_WWW_USER_EMAIL}" || true
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  # ============================================================
+  # Airflow - API Server
+  # ============================================================
+  airflow-api-server:
+    <<: *airflow-common
+    container_name: bayan-airflow-api-server
+    restart: unless-stopped
+
+    command:
+      - api-server
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+
+    ports:
+      - "8081:8080"
+
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+
+  # ============================================================
+  # Airflow - Scheduler
+  # ============================================================
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: bayan-airflow-scheduler
+    restart: unless-stopped
+
+    command:
+      - scheduler
+
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+
+  # ============================================================
+  # Airflow - DAG Processor
+  # ============================================================
+  airflow-dag-processor:
+    <<: *airflow-common
+    container_name: bayan-airflow-dag-processor
+    restart: unless-stopped
+
+    command:
+      - dag-processor
+
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ============================================================
+  # Airflow - Triggerer
+  # ============================================================
+  airflow-triggerer:
+    <<: *airflow-common
+    container_name: bayan-airflow-triggerer
+    restart: unless-stopped
+
+    command:
+      - triggerer
+
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+
+volumes:
+  postgres_data:
+  seaweedfs_master_data:
+  seaweedfs_volume_data:
+  seaweedfs_filer_data:

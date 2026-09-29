@@ -1,0 +1,22 @@
+.venv
+**/.venv
+**/__pycache__
+**/*.pyc
+
+.git
+
+**/*.txt
+!requirements.txt
+
+# Allow dummy Bronze raw files for pipeline testing
+!02_code/02_src/bayan_dummy_bronze/
+!02_code/02_src/bayan_dummy_bronze/**
+!02_code/02_src/bayan_dummy_bronze/**/*.txt
+
+**/*.save
+
+02_code/02_src/silver/test*.py
+02_code/02_src/silver/small_test.py
+02_code/02_src/silver/temp_test.py
+02_code/02_src/silver/inspect*.py
+02_code/02_src/silver/inspecr*.py
