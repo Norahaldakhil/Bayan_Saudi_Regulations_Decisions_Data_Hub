@@ -1,9 +1,0 @@
-requests[socks]
-beautifulsoup4
-pandas
-minio
-boto3
-python-dotenv
-hijridate
-psycopg2-binary
-urllib3
