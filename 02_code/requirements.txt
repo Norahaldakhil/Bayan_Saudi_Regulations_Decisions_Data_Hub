@@ -1,0 +1,14 @@
+# BAYAN Python dependencies
+# Python 3.11+ recommended
+
+apache-airflow>=3.0,<4.0
+boto3
+botocore
+beautifulsoup4
+hijridate
+minio
+pendulum
+psycopg2-binary
+python-dotenv
+requests
+urllib3
