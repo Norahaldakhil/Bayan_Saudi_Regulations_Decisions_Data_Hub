@@ -353,4 +353,4 @@ The project was built around a simple idea:
 
 BAYAN turns regulatory publications into data that can be processed, versioned, analyzed, and extended for future regulatory intelligence applications.
 
-Watch out for future updates 👀
+Stay tuned, there’s more to come. 👀
