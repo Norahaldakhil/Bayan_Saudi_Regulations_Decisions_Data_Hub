@@ -1,6 +1,5 @@
 
-#Bayan - Saudi Regulations & Decisions Data Hub
-
+# BAYAN — Saudi Regulations & Decisions Data Hub
 > **Finding a regulation is easy. Understanding how it changed over time is a different problem.**
 
 **BAYAN (بيان)** — meaning *clarity* — is a data engineering platform designed to transform Saudi regulatory publications into structured, version-aware, and analytics-ready data.
