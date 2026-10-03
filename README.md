@@ -351,3 +351,16 @@ The project was built around a simple idea:
 BAYAN turns regulatory publications into data that can be processed, versioned, analyzed, and extended for future regulatory intelligence applications.
 
 Stay tuned, there’s more to come. 👀
+
+---
+
+## Power BI Dashboards
+
+### Regulations Overview
+
+![BAYAN Power BI dashboard showing the regulations overview](./02_code/03_assets/bayan-regulations-overview.png)
+
+### Articles & Change Monitoring
+
+![BAYAN Power BI dashboard showing articles and change monitoring](./02_code/03_assets/bayan-articles-change-monitoring.png)
+
