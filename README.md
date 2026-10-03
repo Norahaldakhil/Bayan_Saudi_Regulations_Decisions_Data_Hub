@@ -1,7 +1,5 @@
 
-# بيان | BAYAN
-
-### Saudi Regulations & Decisions Data Hub
+#Bayan - Saudi Regulations & Decisions Data Hub
 
 > **Finding a regulation is easy. Understanding how it changed over time is a different problem.**
 
